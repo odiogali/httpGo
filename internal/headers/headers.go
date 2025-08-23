@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 type Headers map[string]string
@@ -13,18 +14,41 @@ func NewHeaders() Headers {
 }
 
 func isValidToken(s string) bool {
-	for index, runeValue := range s {
+	for _, runeVal := range s {
+		switch {
+		case unicode.IsLetter(runeVal):
+			fallthrough
+		case unicode.IsDigit(runeVal):
+			continue
+		}
+
+		switch runeVal {
+		case '!', '#', '$', '%', '&', '\'', '*',
+			'+', '-', '.', '^', '_', '`', '|', '~':
+			continue
+		}
+
+		return false
 	}
+
+	return true
 }
 
 func (h Headers) Set(key string, val string) error {
 	newKey := strings.ToLower(key)
-	h[newKey] = val
+	if !isValidToken(newKey) {
+		return fmt.Errorf("invalid header token")
+	}
 
+	h[newKey] = val
 	return nil
 }
 
 func (h Headers) Get(key string) string {
+	newKey := strings.ToLower(key)
+	if val, ok := h[newKey]; ok {
+		return val
+	}
 	return ""
 }
 
