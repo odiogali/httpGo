@@ -40,6 +40,12 @@ func (h Headers) Set(key string, val string) error {
 		return fmt.Errorf("invalid header token")
 	}
 
+	if oldVal, ok := h[newKey]; ok {
+		newVal := fmt.Sprintf("%s, %s", oldVal, val)
+		h[newKey] = newVal
+		return nil
+	}
+
 	h[newKey] = val
 	return nil
 }
