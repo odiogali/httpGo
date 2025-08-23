@@ -3,6 +3,7 @@ package request
 import (
 	"bytes"
 	"fmt"
+	"httpGo/internal/headers"
 
 	"io"
 	"slices"
@@ -12,10 +13,11 @@ import (
 type parserState string
 
 const (
-	StateInit  parserState = "init"
-	StateDone  parserState = "done"
-	StateError parserState = "error"
-	bufferSize             = 8
+	StateInit   parserState = "init"
+	StateHeader parserState = "header"
+	StateDone   parserState = "done"
+	StateError  parserState = "error"
+	bufferSize              = 8
 )
 
 var (
@@ -25,6 +27,7 @@ var (
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	state       parserState
 }
 
@@ -148,7 +151,11 @@ outer:
 			r.RequestLine = *rl
 			read += n
 
-			r.state = StateDone
+			r.state = StateHeader
+		case StateHeader:
+			header := headers.NewHeaders()
+
+			r.state = StateHeader
 		case StateDone:
 			break outer
 		default:
