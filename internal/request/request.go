@@ -32,12 +32,13 @@ type Request struct {
 }
 
 func (r *Request) done() bool {
-	return r.state == StateDone || r.state == StateError
+	return r.state == StateDone
 }
 
 func newRequest() *Request {
 	return &Request{
-		state: StateInit,
+		Headers: headers.NewHeaders(),
+		state:   StateInit,
 	}
 }
 
@@ -61,9 +62,16 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	for !request.done() {
 		// Fill up free buffer space
 		numRead, err := reader.Read(buf[bufIdx:]) // numRead = 20, buf = "GET /coffee HTTP/1.1"
-		if err != nil {
+		if err != nil && err != io.EOF {
 			// WARNING: How to handle these errors???
 			return nil, err
+		}
+
+		if numRead == 0 && err == io.EOF {
+			if request.state != StateDone {
+				return nil, fmt.Errorf("unexpected EOF: request not complete")
+			}
+			break
 		}
 
 		// NOTE: For debugging
@@ -153,9 +161,25 @@ outer:
 
 			r.state = StateHeader
 		case StateHeader:
-			header := headers.NewHeaders()
+			for !r.done() {
+				n, done, err := r.Headers.ParseSingle(data[read:])
+				if err != nil {
+					r.state = StateError
+					return 0, err
+				}
 
-			r.state = StateHeader
+				if n == 0 {
+					break outer
+				}
+
+				read += n
+				if done {
+					r.state = StateDone
+					break
+				}
+
+			}
+
 		case StateDone:
 			break outer
 		default:

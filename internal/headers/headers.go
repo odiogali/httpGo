@@ -43,10 +43,10 @@ func (h Headers) Set(key string, val string) error {
 	if oldVal, ok := h[newKey]; ok {
 		newVal := fmt.Sprintf("%s, %s", oldVal, val)
 		h[newKey] = newVal
-		return nil
+	} else {
+		h[newKey] = val
 	}
 
-	h[newKey] = val
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (h Headers) Get(key string) string {
 	return ""
 }
 
-func (h Headers) Parse(data []byte) (n int, done bool, err error) {
+func (h *Headers) ParseSingle(data []byte) (n int, done bool, err error) {
 	read := 0
 	idx := bytes.Index(data, []byte("\r\n"))
 	if idx == -1 {
@@ -66,7 +66,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	if idx == 0 {
-		return read, true, nil
+		return 2, true, nil
 	}
 
 	firstColonIdx := bytes.Index(data, []byte(":"))
@@ -76,6 +76,8 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	headerKey := bytes.TrimSpace(data[:firstColonIdx])
 	headerVal := bytes.TrimSpace(data[firstColonIdx+1 : idx])
+
+	// fmt.Printf("key: '%s', val '%s'\n", headerKey, headerVal)
 	err = h.Set(string(headerKey), string(headerVal))
 	if err != nil {
 		return read, true, err
