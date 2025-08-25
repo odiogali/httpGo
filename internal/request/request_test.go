@@ -100,9 +100,18 @@ func TestRequestHeaders(t *testing.T) {
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	assert.Equal(t, "localhost:42069", r.Headers.Get("host"))
-	assert.Equal(t, "curl/7.81.0", r.Headers.Get("user-agent"))
-	assert.Equal(t, "*/*", r.Headers.Get("accept"))
+
+	val, ok := r.Headers.Get("host")
+	assert.True(t, ok)
+	assert.Equal(t, "localhost:42069", val)
+
+	val, ok = r.Headers.Get("user-agent")
+	assert.True(t, ok)
+	assert.Equal(t, "curl/7.81.0", val)
+
+	val, ok = r.Headers.Get("accept")
+	assert.True(t, ok)
+	assert.Equal(t, "*/*", val)
 
 	// Test: Empty Headers
 	reader = &chunkReader{
@@ -133,9 +142,10 @@ func TestRequestHeaders(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	// Depending on your parser: either last wins, or you concatenate.
-	// Here assuming last wins:
-	assert.Equal(t, "a=1, b=2", r.Headers.Get("cookie"))
+
+	val, ok = r.Headers.Get("cookie")
+	assert.True(t, ok)
+	assert.Equal(t, "a=1, b=2", val)
 
 	// Test: Case Insensitive Headers
 	reader = &chunkReader{
@@ -148,9 +158,14 @@ func TestRequestHeaders(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	// Should normalize case (usually to lowercase)
-	assert.Equal(t, "localhost", r.Headers.Get("host"))
-	assert.Equal(t, "test-agent", r.Headers.Get("user-agent"))
+
+	val, ok = r.Headers.Get("host")
+	assert.True(t, ok)
+	assert.Equal(t, "localhost", val)
+
+	val, ok = r.Headers.Get("user-agent")
+	assert.True(t, ok)
+	assert.Equal(t, "test-agent", val)
 
 	// Test: Missing End of Headers
 	reader = &chunkReader{
@@ -224,5 +239,5 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	assert.Equal(t, "body without length", string(r.Body))
+	assert.Equal(t, "", string(r.Body))
 }

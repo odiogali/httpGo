@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"httpGo/internal/headers"
+	"strconv"
+
+	// "strconv"
 
 	"io"
 	"slices"
@@ -17,6 +20,7 @@ const (
 	StateHeader parserState = "header"
 	StateDone   parserState = "done"
 	StateError  parserState = "error"
+	StateBody   parserState = "body"
 	bufferSize              = 8
 )
 
@@ -39,6 +43,7 @@ func (r *Request) done() bool {
 func newRequest() *Request {
 	return &Request{
 		Headers: headers.NewHeaders(),
+		Body:    []byte{},
 		state:   StateInit,
 	}
 }
@@ -121,7 +126,9 @@ func ParseRequestLine(request []byte) (*RequestLine, int, error) {
 	if len(splitRql) != 3 {
 		return nil, -1, fmt.Errorf("invalid number of HTTP request line components")
 	}
-	if !IsUpper(string(splitRql[0])) || !slices.Contains(METHODS, string(splitRql[0])) || !bytes.Equal(splitRql[2], []byte("HTTP/1.1")) {
+	if !IsUpper(string(splitRql[0])) ||
+		!slices.Contains(METHODS, string(splitRql[0])) ||
+		!bytes.Equal(splitRql[2], []byte("HTTP/1.1")) {
 		return nil, -1, fmt.Errorf("HTTP request line content is invalid")
 	}
 
@@ -175,12 +182,37 @@ outer:
 
 				read += n
 				if done {
-					r.state = StateDone
+					r.state = StateBody
 					break
 				}
-
+			}
+		case StateBody:
+			val, found := r.Headers.Get("Content-Length")
+			if !found {
+				r.state = StateDone
+				break outer
 			}
 
+			contentLength, err := strconv.Atoi(val)
+			if err != nil {
+				r.state = StateError
+				return 0, err
+			}
+
+			consumed := 0
+			if len(r.Body) < contentLength {
+				diff := contentLength - len(r.Body)
+				consumed = min(diff, len(data[read:]))
+				r.Body = append(r.Body, data[read:read+consumed]...)
+			}
+
+			read += consumed
+
+			if len(r.Body) == contentLength {
+				r.state = StateDone
+			}
+
+			break outer
 		case StateDone:
 			break outer
 		default:

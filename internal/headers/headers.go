@@ -50,12 +50,13 @@ func (h Headers) Set(key string, val string) error {
 	return nil
 }
 
-func (h Headers) Get(key string) string {
+// Returns the value and whether it was found
+func (h Headers) Get(key string) (string, bool) {
 	newKey := strings.ToLower(key)
 	if val, ok := h[newKey]; ok {
-		return val
+		return val, ok
 	}
-	return ""
+	return "", false
 }
 
 func (h *Headers) ParseSingle(data []byte) (n int, done bool, err error) {
