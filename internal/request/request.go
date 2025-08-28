@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"httpGo/internal/headers"
-	"strconv"
-
-	// "strconv"
-
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -74,14 +71,15 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		}
 
 		if numRead == 0 && err == io.EOF {
-			if request.state != StateDone {
+			if !request.done() {
+				fmt.Println(request)
+				if request.state == StateInit && len(request.RequestLine.Method) == 0 {
+					return nil, io.EOF
+				}
 				return nil, fmt.Errorf("unexpected EOF: request not complete")
 			}
 			break
 		}
-
-		// NOTE: For debugging
-		// fmt.Printf("buf: %s\n", string(buf))
 
 		if len(buf) == bufIdx {
 			buf = slices.Grow(buf, len(buf))
@@ -92,11 +90,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 		// Parse consumes some amount of buf (from beginning buf to bufIdx)
 		readN, err := request.parse(buf[:bufIdx]) // readN = 20
-
-		// NOTE: For debugging
-		// fmt.Printf("len: %d, cap: %d\n", len(buf), cap(buf))
-		// fmt.Printf("numRead: %d, bufIdx: %d\n\n", numRead, bufIdx)
-
 		if err != nil {
 			return nil, err
 		}

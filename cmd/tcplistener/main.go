@@ -23,6 +23,7 @@ func main() {
 
 		req, err := request.RequestFromReader(conn)
 		if err != nil {
+			// WARNING: This is incorrect behaviour
 			panic(err)
 		}
 
