@@ -72,7 +72,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 		if numRead == 0 && err == io.EOF {
 			if !request.done() {
-				fmt.Println(request)
 				if request.state == StateInit && len(request.RequestLine.Method) == 0 {
 					return nil, io.EOF
 				}
