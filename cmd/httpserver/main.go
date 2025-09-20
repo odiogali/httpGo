@@ -55,17 +55,16 @@ func main() {
 		if req.RequestLine.RequestTarget == "/yourproblem" {
 			status = 400
 			message = defaultResponses[status]
-			h.Replace("Content-Length", fmt.Sprintf("%d", len((message))))
 
 		} else if req.RequestLine.RequestTarget == "/myproblem" {
 			status = 500
 			message = defaultResponses[status]
-			h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
 		} else {
 			status = 200
 			message = defaultResponses[status]
-			h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
 		}
+		h.Set("Content-Type", "text/html")
+		h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
 
 		w.WriteStatusLine(status)
 		w.WriteHeaders(h)
