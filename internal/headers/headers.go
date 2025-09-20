@@ -59,6 +59,17 @@ func (h Headers) Get(key string) (string, bool) {
 	return "", false
 }
 
+func (h Headers) Replace(key string, val string) error {
+	newKey := strings.ToLower(key)
+	if !isValidToken(newKey) {
+		return fmt.Errorf("invalid header token")
+	}
+
+	h[newKey] = val
+
+	return nil
+}
+
 func (h *Headers) ParseSingle(data []byte) (n int, done bool, err error) {
 	read := 0
 	idx := bytes.Index(data, []byte("\r\n"))

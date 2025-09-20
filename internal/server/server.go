@@ -3,19 +3,29 @@ package server
 import (
 	"fmt"
 	"httpGo/internal/request"
+	"httpGo/internal/response"
 	"io"
 	"net"
 	"sync/atomic"
 )
 
-type Server struct {
-	Addr   string
-	Closed atomic.Bool
-}
+type (
+	Server struct {
+		Addr    string
+		Closed  atomic.Bool
+		Handler Handler
+	}
+	Handler      func(w *response.Writer, req *request.Request)
+	HandlerError struct {
+		StatusCode response.StatusCode
+		Msg        string
+	}
+)
 
-func Serve(port int) (*Server, error) {
+func Serve(port uint16, handlerFunc Handler) (*Server, error) {
 	server := &Server{
-		Addr: fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handlerFunc,
 	}
 	server.Closed.Store(false)
 
@@ -48,41 +58,25 @@ func (s *Server) listen() {
 			return // if server is closed, close connection and exit function
 		}
 
-		go func() {
-			defer conn.Close()
-			for !s.Closed.Load() {
-				req, err := request.RequestFromReader(conn)
-				if err != nil {
-					if err == io.EOF {
-						fmt.Println("Client closed connection.")
-						return
-					}
-					panic(err)
-				}
-
-				fmt.Println("Request line:")
-				fmt.Printf("- Method: %s\n", req.RequestLine.Method)
-				fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
-				fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
-				fmt.Println("Headers:")
-				for key, val := range req.Headers {
-					fmt.Printf("- %s: %s\n", key, val)
-				}
-				fmt.Println("Body:")
-				fmt.Println(string(req.Body))
-
-				s.handle(conn)
-			}
-		}()
+		go s.handle(conn)
 	}
 }
 
 func (s *Server) handle(conn net.Conn) {
-	initial := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nHello World!"
+	responseWriter := response.NewWriter(conn)
 
-	n, err := conn.Write([]byte(initial))
-	if err != nil || n != len(initial) {
-		fmt.Println("error writing to connection: ", err)
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		if err == io.EOF {
+			fmt.Println("Client closed connection.")
+		} else {
+			responseWriter.WriteStatusLine(response.BadRequest)
+			responseWriter.WriteHeaders(response.GetDefaultHeaders(0))
+		}
+		conn.Close()
 		return
 	}
+
+	s.Handler(responseWriter, req)
+	conn.Close()
 }

@@ -66,7 +66,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		// Fill up free buffer space
 		numRead, err := reader.Read(buf[bufIdx:]) // numRead = 20, buf = "GET /coffee HTTP/1.1"
 		if err != nil && err != io.EOF {
-			// WARNING: How to handle these errors???
 			return nil, err
 		}
 
