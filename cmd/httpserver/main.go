@@ -1,13 +1,18 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"httpGo/internal/headers"
 	"httpGo/internal/request"
 	"httpGo/internal/response"
 	"httpGo/internal/server"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -53,16 +58,92 @@ func main() {
 </html>`)
 
 		if req.RequestLine.RequestTarget == "/yourproblem" {
+
 			status = 400
 			message = defaultResponses[status]
 
 		} else if req.RequestLine.RequestTarget == "/myproblem" {
+
 			status = 500
 			message = defaultResponses[status]
+
+		} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
+
+			newReqLine := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin")
+			h.Delete("Content-Length")
+			h.Set("Transfer-Encoding", "chunked")
+			h.Set("Trailer", "X-Content-SHA256")
+			h.Set("Trailer", "X-Content-Length")
+
+			resp, err := http.Get(fmt.Sprintf("https://httpbin.org%s", newReqLine))
+			if err != nil {
+				status = 500
+				message = defaultResponses[500]
+
+				h.Set("Content-Type", "text/html")
+				h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
+
+				w.WriteStatusLine(status)
+				w.WriteHeaders(h)
+				w.WriteBody(message)
+				return
+			}
+			h.Set("Content-Type", resp.Header.Get("Content-Type"))
+
+			w.WriteStatusLine(response.StatusCode(resp.StatusCode))
+			w.WriteHeaders(h)
+
+			fullBody := []byte{}
+			for {
+				b := make([]byte, 1024)
+				n, err := resp.Body.Read(b)
+				if err != nil {
+					break
+				}
+				fmt.Printf("Number of bytes read by proxy: %d\n", n)
+				fullBody = append(fullBody, b[:n]...)
+
+				w.WriteChunkedBody(b)
+			}
+			w.WriteChunkedBodyDone()
+
+			trailers := headers.NewHeaders()
+
+			sha256 := sha256.Sum256(fullBody)
+			trailers.Set("X-Content-SHA256", hex.EncodeToString(sha256[:]))
+			trailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+			w.WriteHeaders(trailers)
+			return
+		} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/video") {
+			status = response.OK
+			bytes, err := os.ReadFile("./assets/vim.mp4")
+			if err != nil {
+				status = 500
+				message = defaultResponses[500]
+
+				h.Set("Content-Type", "text/html")
+				h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
+
+				w.WriteStatusLine(status)
+				w.WriteHeaders(h)
+				w.WriteBody(message)
+				return
+			}
+
+			h.Replace("Content-Type", "video/mp4")
+			h.Replace("Content-Length", fmt.Sprintf("%d", len(bytes)))
+
+			w.WriteStatusLine(status)
+			w.WriteHeaders(h)
+			w.WriteBody(bytes)
+			return
 		} else {
+
 			status = 200
 			message = defaultResponses[status]
+
 		}
+
 		h.Set("Content-Type", "text/html")
 		h.Replace("Content-Length", fmt.Sprintf("%d", len([]byte(message))))
 

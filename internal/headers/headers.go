@@ -70,6 +70,13 @@ func (h Headers) Replace(key string, val string) error {
 	return nil
 }
 
+func (h Headers) Delete(key string) error {
+	newKey := strings.ToLower(key)
+	delete(h, newKey)
+
+	return nil
+}
+
 func (h *Headers) ParseSingle(data []byte) (n int, done bool, err error) {
 	read := 0
 	idx := bytes.Index(data, []byte("\r\n"))

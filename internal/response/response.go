@@ -90,3 +90,41 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 
 	return n, err
 }
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	size := len(p)
+	data := fmt.Sprintf("%x\r\n%s\r\n", size, string(p))
+
+	n, err := w.writer.Write([]byte(data))
+	if err != nil {
+		return 0, err
+	}
+
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	p := []byte("0\r\n")
+	n, err := w.writer.Write(p)
+	if err != nil {
+		return 0, err
+	}
+
+	return n, err
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	for key, val := range h {
+		_, err := w.writer.Write(fmt.Appendf([]byte{}, "%s: %s\r\n", key, val))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := w.writer.Write([]byte("\r\n"))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
